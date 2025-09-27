@@ -1,6 +1,7 @@
 import requests
 import json
 import unicodedata
+from pathlib import Path
 
 # ====> REMARQUE : Les Url ci-dessous sont différentes que celles affichées dans la vidéo.
 # C'est normal, continuez bien avec les url de ce fichier
@@ -24,12 +25,21 @@ def get_quizz_filename(categorie, titre, difficulte):
 def generate_json_file(categorie, titre, url):
     out_questionnaire_data = {"categorie": categorie, "titre": titre, "questions": []}
     out_questions_data = []
+    
+    # Faire le requete url
     response = requests.get(url)
-    data = json.loads(response.text)
+    if response.status_code != 200:
+        print(f"Request failed with status code: {response.status_code}")
+        return
+    try:
+        data = json.loads(response.text)
+    except json.decoder.JSONDecodeError:
+        print(f"No valid JSON from the url: {url}")
+        return
     all_quizz = data["quizz"]["fr"]
+    
     for quizz_title, quizz_data in all_quizz.items():
         out_filename = get_quizz_filename(categorie, titre, quizz_title)
-        print(out_filename)
         out_questionnaire_data["difficulte"] = quizz_title
         for question in quizz_data:
             question_dict = {}
@@ -39,14 +49,16 @@ def generate_json_file(categorie, titre, url):
                 question_dict["choix"].append((ch, ch==question["réponse"]))
             out_questions_data.append(question_dict)
         out_questionnaire_data["questions"] = out_questions_data
-        out_json = json.dumps(out_questionnaire_data)
+        out_json = json.dumps(out_questionnaire_data, indent=4)
 
-        file = open(out_filename, "w")
-        file.write(out_json)
-        file.close()
-        print("end")
+        data_folder =  Path("data")
+        data_folder.mkdir(exist_ok=True)
+        with open((data_folder / out_filename), "w", encoding="utf-8") as f:
+            f.write(out_json)       
+        print("End")
 
 
-for quizz_data in open_quizz_db_data:
-    generate_json_file(quizz_data[0], quizz_data[1], quizz_data[2])
+if __name__ == "__main__":
+    for quizz_data in open_quizz_db_data:
+        generate_json_file(quizz_data[0], quizz_data[1], quizz_data[2])
 
